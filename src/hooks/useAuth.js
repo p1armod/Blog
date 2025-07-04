@@ -1,147 +1,91 @@
 import { useDispatch, useSelector } from 'react-redux';
+import { useCallback } from 'react';
 import { 
-    login as authLogin, 
-    logout as authLogout, 
-    setAuthStatus, 
-    setError, 
+    loginSuccess,
+    loginFailed,
+    registerSuccess,
+    registerFailed,
+    logout as logoutAction,
+    setLoading,
     clearError,
-    selectCurrentUser,
     selectIsAuthenticated,
     selectAuthStatus,
-    selectAuthError
+    selectAuthError,
+    selectCurrentUser
 } from '../store/authSlice';
 import authService from '../appwrite/auth';
-import { useCallback } from 'react';
 
 export function useAuth() {
     const dispatch = useDispatch();
     
-    // Selectors
-    const user = useSelector(selectCurrentUser);
+    // Select auth state from Redux
     const isAuthenticated = useSelector(selectIsAuthenticated);
     const status = useSelector(selectAuthStatus);
     const error = useSelector(selectAuthError);
+    const user = useSelector(selectCurrentUser);
     const isLoading = status === 'loading';
 
-    // Clear any existing errors
-    const clearAuthError = useCallback(() => {
+    // Login function
+    const login = useCallback(async (credentials) => {
         dispatch(clearError());
-    }, [dispatch]);
-
-    // Get current user session
-    const getCurrentUser = useCallback(async () => {
+        dispatch(setLoading());
+        
         try {
-            dispatch(setAuthStatus('loading'));
-            const userData = await authService.getCurrentUser();
+            const userData = await authService.login(credentials);
             if (userData) {
-                dispatch(authLogin(userData));
+                dispatch(loginSuccess(userData));
+                return { success: true };
+            } else {
+                const error = 'Invalid email or password';
+                dispatch(loginFailed(error));
+                return { success: false, error };
             }
-            return userData;
         } catch (error) {
-            dispatch(setError(error.message));
-            return null;
+            const errorMsg = error.message || 'Login failed. Please try again.';
+            dispatch(loginFailed(errorMsg));
+            return { success: false, error: errorMsg };
         }
     }, [dispatch]);
 
-    // Login with email and password
-    const login = async ({ email, password }) => {
+    // Register function
+    const register = useCallback(async (userData) => {
+        dispatch(clearError());
+        dispatch(setLoading());
+        
         try {
-            dispatch(setAuthStatus('loading'));
-            const session = await authService.login({ email, password });
-            if (session) {
-                // Get the user data after successful login
-                const userData = await authService.getCurrentUser();
-                if (userData) {
-                    dispatch(authLogin(userData));
-                    return { success: true };
-                }
-                return { success: false, error: 'Failed to fetch user data' };
+            const newUser = await authService.createAccount(userData);
+            if (newUser) {
+                dispatch(registerSuccess(newUser));
+                return { success: true };
+            } else {
+                const error = 'Failed to create account';
+                dispatch(registerFailed(error));
+                return { success: false, error };
             }
         } catch (error) {
-            dispatch(setError(error.message));
-            throw error;
+            const errorMsg = error.message || 'Registration failed. Please try again.';
+            dispatch(registerFailed(errorMsg));
+            return { success: false, error: errorMsg };
         }
-    };
+    }, [dispatch]);
 
-    // Register a new user
-    const register = async (userData) => {
+    // Logout function
+    const logout = useCallback(async () => {
         try {
-            dispatch(setAuthStatus('loading'));
-            const user = await authService.createAccount(userData);
-            if (user) {
-                // Auto-login after registration if email and password are provided
-                if (userData.email && userData.password) {
-                    return await login({
-                        email: userData.email,
-                        password: userData.password
-                    });
-                }
-                return user;
-            }
-        } catch (error) {
-            dispatch(setError(error.message));
-            throw error;
-        }
-    };
-
-    // Logout the current user
-    const logout = async () => {
-        try {
-            dispatch(setAuthStatus('loading'));
-            // Clear all auth-related data
             await authService.logout();
-            // Reset the auth state
-            dispatch(authLogout());
-            // Reset any query caches if you're using React Query
-            if (window.queryClient) {
-                window.queryClient.clear();
-            }
-            return true;
-        } catch (error) {
-            console.error('Logout error:', error);
-            dispatch(setError(error.message));
-            // Even if there's an error, we want to clear the auth state
-            dispatch(authLogout());
-            return true;
-        }
-    };
-
-    // Get user data by ID
-    const getUserData = async (userId) => {
-        try {
-            dispatch(setAuthStatus('loading'));
-            const userData = await authService.getUserData(userId);
-            return userData;
-        } catch (error) {
-            dispatch(setError(error.message));
-            throw error;
         } finally {
-            dispatch(setAuthStatus('idle'));
+            // Always dispatch logout to clear local state, even if server logout fails
+            dispatch(logoutAction());
         }
-    };
-
-    // Check if user is authenticated
-    const checkAuth = async () => {
-        try {
-            const userData = await getCurrentUser();
-            return !!userData;
-        } catch (error) {
-            return false;
-        }
-    };
+    }, [dispatch]);
 
     return {
-        user,
         isAuthenticated,
         isLoading,
         error,
-        status,
+        user,
         login,
-        logout,
         register,
-        getCurrentUser,
-        getUserData,
-        checkAuth,
-        clearAuthError
+        logout
     };
 }

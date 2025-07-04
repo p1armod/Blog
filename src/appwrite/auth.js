@@ -22,25 +22,37 @@ export class AuthService{
 
     async createAccount({email, password, name}){
         try {
+            // Create the account
             const user = await this.account.create(ID.unique(), email, password, name);
-            if(user){
-                //login
-                return await this.login({email, password});
+            
+            if(user) {
+                // Create a new session
+                await this.account.createEmailPasswordSession(email, password);
+                
+                // Get the current user data with the new session
+                const currentUser = await this.getCurrentUser();
+                return currentUser;
             }
-            return user;
+            return null;
         } catch (error) {
+            console.error('Error in createAccount:', error);
             throw error;
         }
     }
 
     async login({email, password}){
         try {
-            const session = await this.account.createEmailPasswordSession(email, password);
-            if(session){
-                return session;
+            // Create a new session
+            await this.account.createEmailPasswordSession(email, password);
+            
+            // Get the current user data with the new session
+            const user = await this.getCurrentUser();
+            if (!user) {
+                throw new Error('Failed to fetch user data after login');
             }
-            return null;
+            return user;
         } catch (error) {
+            console.error('Error in login:', error);
             throw error;
         }
     }
@@ -49,7 +61,9 @@ export class AuthService{
         try {
             return await this.account.get();
         } catch (error) {
-            console.log("Appwrite serive :: getCurrentUser :: error");
+            // Error getting current user
+            console.error('Error getting current user:', error);
+            throw error;
         }
 
         return null;
@@ -57,17 +71,8 @@ export class AuthService{
 
     async logout(){
         try {
-            // Delete the current session
-            await this.account.deleteSession('current');
-            // Clear any remaining session data
-            localStorage.clear();
-            sessionStorage.clear();
-            // Clear cookies by setting their expiry to the past
-            document.cookie.split(";").forEach((c) => {
-                document.cookie = c
-                    .replace(/^ +/, "")
-                    .replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`);
-            });
+            // Delete all sessions for the current user
+            await this.account.deleteSessions();
             return true;
         } catch (error) {
             throw error;

@@ -2,25 +2,63 @@ import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Container, PostCard, Button } from '../components';
 import { usePosts } from '../hooks/usePosts';
-import { useSelector } from 'react-redux';
-import { selectIsAuthenticated } from '../store/authSlice';
+import { useSelector, useDispatch } from 'react-redux';
+import { selectIsAuthenticated, selectCurrentUser } from '../store/authSlice';
+import { setPosts } from '../store/postSlice';
 
 function Home() {
-    const isAuthenticated = useSelector(selectIsAuthenticated);
     const navigate = useNavigate();
+    const isAuthenticated = useSelector(selectIsAuthenticated);
+    const currentUser = useSelector(selectCurrentUser);
+    const dispatch = useDispatch();
     const { 
-        posts = [], // Provide default empty array
-        status = 'idle', // Default status
-        error = null, // Default error
+        posts = [], 
+        status: postsStatus, 
+        error, 
         fetchPosts 
     } = usePosts();
 
     // Redirect to login if not authenticated
     useEffect(() => {
-        if (!isAuthenticated && status !== 'loading') {
+        if (!isAuthenticated && postsStatus !== 'loading') {
             navigate('/login', { replace: true });
         }
-    }, [isAuthenticated, status, navigate]);
+    }, [isAuthenticated, postsStatus, navigate]);
+
+    // Fetch posts when component mounts or when currentUser changes
+    useEffect(() => {
+        let isMounted = true;
+        
+        const loadPosts = async () => {
+            if (!currentUser?.$id) {
+                return;
+            }
+
+            try {
+                await fetchPosts('active', currentUser.$id);
+            } catch (error) {
+                console.error('Error loading posts:', error);
+                // Handle error silently or show user-friendly message
+            }
+        };
+
+        // Always load posts when user changes or component mounts
+        if (currentUser?.$id) {
+            loadPosts();
+        }
+
+        // Cleanup function to prevent state updates after unmount
+        return () => {
+            isMounted = false;
+        };
+    }, [currentUser?.$id]);
+    
+    // Reset posts when user logs out
+    useEffect(() => {
+        if (!isAuthenticated) {
+            dispatch(setPosts([]));
+        }
+    }, [isAuthenticated, dispatch]);
 
     // Show login prompt if not authenticated
     if (!isAuthenticated) {
@@ -42,33 +80,35 @@ function Home() {
         );
     }
 
-    useEffect(() => {
-        // Only fetch if we haven't loaded posts yet
-        if (status === 'idle' || status === 'succeeded') {
-            fetchPosts('active');
-        }
-    }, [fetchPosts, status]);
-
-    const isLoading = status === 'loading';
-
-    // Show loading skeleton only on initial load
-    if (isLoading && posts.length === 0) {
+    // Show loading state
+    if (postsStatus === 'loading') {
         return (
-            <div className="w-full py-16 bg-gray-50">
+            <div className="w-full py-8">
                 <Container>
-                    <div className="mb-8">
-                        <div className="h-8 bg-gray-200 rounded w-1/3 max-w-xs mb-4"></div>
-                        <div className="h-4 bg-gray-200 rounded w-1/2 max-w-sm"></div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                        {[...Array(4)].map((_, i) => (
-                            <div key={i} className="animate-pulse">
-                                <div className="h-48 bg-gray-200 rounded-lg mb-4"></div>
-                                <div className="h-5 bg-gray-200 rounded w-3/4 mb-3"></div>
-                                <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-                                <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                            </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {[...Array(3)].map((_, i) => (
+                            <div key={i} className="animate-pulse bg-gray-200 rounded-xl h-64"></div>
                         ))}
+                    </div>
+                </Container>
+            </div>
+        );
+    }
+
+    // Show empty state if no posts
+    if (postsStatus !== 'loading' && (!posts || posts.length === 0)) {
+        return (
+            <div className="w-full py-16">
+                <Container>
+                    <div className="max-w-2xl mx-auto text-center">
+                        <h2 className="text-2xl font-bold text-gray-900 mb-4">No posts yet</h2>
+                        <p className="text-gray-600 mb-6">You haven't created any posts yet. Create your first post now!</p>
+                        <Link
+                            to="/add-post"
+                            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                            Create Your First Post
+                        </Link>
                     </div>
                 </Container>
             </div>
@@ -105,8 +145,10 @@ function Home() {
         );
     }
 
-    // Ensure posts is always an array before mapping
-    const displayPosts = Array.isArray(posts) ? posts : [];
+    // Filter posts by current user and ensure it's always an array
+    const displayPosts = Array.isArray(posts) 
+        ? posts.filter(post => post['user-id'] === currentUser?.$id)
+        : [];
     const hasPosts = displayPosts.length > 0;
 
     return (

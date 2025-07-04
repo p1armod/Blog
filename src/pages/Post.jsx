@@ -11,16 +11,34 @@ export default function Post() {
     const navigate = useNavigate();
 
     const userData = useSelector((state) => state.auth.userData);
-
-    const isAuthor = post && userData ? post['user-id'] === userData.$id : false;
+    
+    // Get the correct user ID from the auth state
+    const currentUserId = userData?.$id;
+    const postUserId = post?.['user-id'];
+    
+    // Check if the current user is the author of the post
+    const isAuthor = post && postUserId === currentUserId;
+    
 
     useEffect(() => {
-        if (slug) {
-            appwriteService.getPostById(slug).then((post) => {
-                if (post) setPost(post);
-                else navigate("/");
-            });
-        } else navigate("/");
+        const fetchPost = async () => {
+            if (slug) {
+                try {
+                    const postData = await appwriteService.getPostById(slug);
+                    if (postData) {
+                        setPost(postData);
+                    } else {
+                        navigate("/");
+                    }
+                } catch (error) {
+                    navigate("/");
+                }
+            } else {
+                navigate("/");
+            }
+        };
+
+        fetchPost();
     }, [slug, navigate]);
 
     const deletePost = async () => {
@@ -45,7 +63,7 @@ export default function Post() {
                         e.currentTarget.src = '/default-image.jpg';
                     }}
                     onLoad={(e) => {
-                        console.log("Image loaded successfully");
+                        // Image loaded successfully
                     }}
                 />
 

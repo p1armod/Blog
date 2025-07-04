@@ -1,16 +1,8 @@
 import "./App.css";
 import { Header, Footer } from "./components";
-import { Outlet, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { Outlet } from "react-router-dom";
 
-function App() {
-  const location = useLocation();
-
-  // Scroll to top on route change
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
-
+const App = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
@@ -20,6 +12,6 @@ function App() {
       <Footer />
     </div>
   );
-}
+};
 
 export default App;

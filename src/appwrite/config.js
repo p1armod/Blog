@@ -29,22 +29,18 @@ export class Service {
             // Try to get the current session
             const session = await this.account.getSession('current');
             if (!session) {
-                console.log('No active session found');
+                // No active session
                 return false;
             }
             return true;
         } catch (error) {
-            console.log('Session check failed, user is not authenticated');
+            // Session check failed
             return false;
         }
     }
 
     async createPost({title, slug, content, 'featured-image': featuredImage, status, 'user-id': userId}){
         try {
-            // Generate a simple, valid document ID
-            const timestamp = Date.now().toString(36);
-            const random = Math.random().toString(36).substring(2, 8);
-            const documentId = `post_${timestamp}${random}`;
             
             // Ensure the slug is URL-safe and not too long
             const safeSlug = (slug || title || 'untitled')
@@ -75,11 +71,11 @@ export class Service {
             return await this.databases.createDocument(
                 conf.database_id,
                 conf.collection_id,
-                documentId,
+                ID.unique(),
                 documentData
             )
         } catch (error) {
-            console.log("Appwrite service :: createPost :: error", error);
+            console.error("Error creating post:", error);
             throw error; // Re-throw to handle in the component
         }
     }
@@ -105,11 +101,11 @@ export class Service {
                     slug
                 );
             } catch (err) {
-                console.log("Appwrite service :: getPostById :: error with direct ID lookup", err);
+                // Fallback to query lookup
                 return false;
             }
         } catch (error) {
-            console.log("Appwrite service :: getPostById :: error", error);
+            console.error("Error getting post by ID:", error);
             return false;
         }
     }
@@ -125,11 +121,11 @@ export class Service {
             }
             
             // Remove undefined values
-            Object.keys(updateData).forEach(key => {
-                if (updateData[key] === undefined) {
-                    delete updateData[key];
-                }
-            });
+            // Object.keys(updateData).forEach(key => {
+            //     if (updateData[key] === undefined) {
+            //         delete updateData[key];
+            //     }
+            // });
             
             return await this.databases.updateDocument(
                 conf.database_id,
@@ -138,7 +134,7 @@ export class Service {
                 updateData
             )
         } catch (error) {
-            console.log("Appwrite service :: updatePost :: error", error);
+            console.error("Error updating post:", error);
             throw error; // Re-throw to handle in the component
         }
     }
@@ -153,7 +149,7 @@ export class Service {
             )
             return true
         } catch (error) {
-            console.log("Appwrite service :: deletePost :: error", error);
+            console.error("Error deleting post:", error);
             return false
         }
     }
@@ -162,7 +158,7 @@ export class Service {
         // Check if user is authenticated
         const hasSession = await this.ensureSession();
         if (!hasSession) {
-            console.log("Appwrite service :: getPost :: authentication required");
+            // Authentication required
             return false;
         }
 
@@ -179,23 +175,33 @@ export class Service {
     }
 
     async getPosts(queries = []) {
-        // Check if user is authenticated
-        const hasSession = await this.ensureSession();
-        if (!hasSession) {
-            console.log("Appwrite service :: getPosts :: authentication required");
-            return { documents: [] };
-        }
-
         try {
-            const defaultQueries = queries.length > 0 ? queries : [
-                Query.equal("status", "active"),
-                Query.orderDesc('$createdAt')
-            ];
+            // Ensure queries is an array
+            const queryArray = Array.isArray(queries) ? [...queries] : [];
+            
+            // Always include status filter as the first query
+            const finalQueries = [Query.equal("status", "active")];
+            
+            // Add all other queries, skipping any duplicate status filters
+            queryArray.forEach(q => {
+                try {
+                    // Skip if it's a status filter (we already added it)
+                    if (typeof q === 'string') {
+                        const parsed = JSON.parse(q);
+                        if (parsed.attribute === 'status') return;
+                    } else if (q?.attribute === 'status' || (q?.method === 'equal' && q?.attribute === 'status')) {
+                        return;
+                    }
+                    finalQueries.push(q);
+                } catch (e) {
+                    // Silently handle invalid query format
+                }
+            });
             
             return await this.databases.listDocuments(
                 conf.database_id,
                 conf.collection_id,
-                defaultQueries
+                finalQueries
             );
         } catch (error) {
             console.error("Appwrite service :: getPosts :: error", error);
@@ -213,7 +219,7 @@ export class Service {
                 file
             )
         } catch (error) {
-            console.log("Appwrite service :: uploadFile :: error", error);
+            console.error("Error uploading file:", error);
             return false
         }
     }
@@ -226,7 +232,7 @@ export class Service {
             )
             return true
         } catch (error) {
-            console.log("Appwrite service :: deleteFile :: error", error);
+            console.error("Error deleting file:", error);
             return false
         }
     }
@@ -234,7 +240,7 @@ export class Service {
     getFilePreview(fileId) {
         try {
             if (!fileId) {
-                console.log("No file ID provided");
+                // No file ID provided
                 return null;
             }
             

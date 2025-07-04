@@ -1,4 +1,5 @@
 import { useDispatch, useSelector } from 'react-redux';
+import { useCallback } from 'react';
 import { 
     setPosts, 
     setCurrentPost, 
@@ -15,22 +16,26 @@ export function usePosts() {
     const dispatch = useDispatch();
     const { posts, currentPost, status, error } = useSelector((state) => state.posts);
 
-    // Fetch all posts
-    const fetchPosts = async (status = null) => {
+    // Fetch all posts with useCallback to prevent unnecessary re-renders
+    const fetchPosts = useCallback(async (status = 'active', userId = null) => {
         try {
-            dispatch(setLoading());
-            const queries = [];
-            if (status) {
-                queries.push(Query.equal("status", status));
-            }
-            const postsData = await appwriteService.getPosts(queries);
-            dispatch(setPosts(postsData.documents));
-            return postsData.documents;
+            const postsData = await appwriteService.getPosts();
+            console.log(postsData)
+            
+            // Update the Redux store
+            const action = await dispatch(setPosts(postsData.documents));
+            return action.payload;
         } catch (error) {
+            console.error('Error in fetchPosts:', {
+                error,
+                message: error.message,
+                stack: error.stack
+            });
             dispatch(setError(error.message));
-            throw error;
+            dispatch(setPosts([]));
+            return [];
         }
-    };
+    }, [dispatch]);
 
     // Fetch a single post by ID
     const fetchPostById = async (postId) => {

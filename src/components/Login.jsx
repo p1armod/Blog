@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button, Input, Logo } from './index';
 import { useForm } from 'react-hook-form';
-import { useAuth } from '../hooks/useAuth';
 import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi';
+import { useAuth } from '../hooks/useAuth';
 
 export default function Login() {
+    const { login, isAuthenticated, isLoading, error } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
-    const { login, isAuthenticated, isLoading, error } = useAuth();
     const { register, handleSubmit, formState: { errors } } = useForm();
     const [showPassword, setShowPassword] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
@@ -22,13 +22,9 @@ export default function Login() {
     }, [isAuthenticated, navigate, from]);
 
     const onSubmit = async (data) => {
-        try {
-            const result = await login(data);
-            if (!result?.success) {
-                console.error('Login failed:', result?.error || 'Unknown error');
-            }
-        } catch (error) {
-            console.error('Login error:', error);
+        const { success } = await login(data);
+        if (success) {
+            navigate(from, { replace: true });
         }
     };
 
@@ -129,27 +125,22 @@ export default function Login() {
                         <div>
                             <Button
                                 type="submit"
-                                className={`group w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
                                 disabled={isLoading}
                                 onMouseEnter={() => setIsHovered(true)}
                                 onMouseLeave={() => setIsHovered(false)}
+                                className={`group w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
                             >
                                 <span className="flex items-center">
-                                    {isLoading ? (
-                                        'Signing in...'
-                                    ) : (
+                                    {isLoading ? 'Signing in...' : (
                                         <>
                                             Sign in
-                                            <FiArrowRight 
-                                                className={`ml-2 h-5 w-5 transform transition-transform duration-200 ${isHovered ? 'translate-x-1' : ''}`} 
-                                            />
+                                            <FiArrowRight className={`ml-2 h-4 w-4 transition-transform duration-200 ${isHovered ? 'translate-x-1' : ''}`} />
                                         </>
                                     )}
                                 </span>
                             </Button>
                         </div>
                     </form>
-
 
                 </div>
             </div>
