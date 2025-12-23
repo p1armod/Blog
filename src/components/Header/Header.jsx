@@ -19,7 +19,7 @@ export default function Header() {
       name: 'Home',
       slug: "/",
       active: true
-    }, 
+    },
     {
       name: "Login",
       slug: "/login",
@@ -50,7 +50,7 @@ export default function Header() {
         <div className="flex items-center justify-between h-16 px-4">
           {/* Logo */}
           <Link to="/" className="text-xl font-bold text-gray-800">
-            <Logo width="120px" />
+            <Logo width="50px" />
           </Link>
 
           {/* Desktop Navigation - Hidden on mobile */}

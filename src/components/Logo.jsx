@@ -1,5 +1,5 @@
-export default function Logo({width = '100px'}) {
+export default function Logo({ width = '100px' }) {
     return (
-        <img src="../../assets/react.svg" alt="" width={width} />
+        <img src="../../public/logo.png" alt="" width={width} />
     )
 }
